@@ -241,6 +241,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Google sign-in was cancelled.' };
       }
 
+      if (error?.code === 'auth/unauthorized-domain') {
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'Vercel domain';
+        return {
+          success: false,
+          error: `Domain "${hostname}" needs to be authorized in Firebase Console (Authentication > Settings > Authorized domains). You can sign in below in the meantime.`,
+          requiresFallback: true
+        };
+      }
+
       return {
         success: false,
         error: error?.message || 'Unable to sign in with Google.',

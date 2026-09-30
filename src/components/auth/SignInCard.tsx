@@ -33,7 +33,7 @@ export const SignInCard: React.FC<SignInCardProps> = ({
     if (res.success) {
       onSuccess();
     } else if (res.requiresFallback) {
-      // If popup was blocked or restricted in preview iframe, open account selector modal
+      if (res.error) setErrorMessage(res.error);
       onOpenAccountPicker();
     } else {
       setErrorMessage(res.error || 'Unable to sign in with Google. Please try again.');
