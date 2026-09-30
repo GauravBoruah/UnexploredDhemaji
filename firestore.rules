@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'boruahborajen2019@gmail.com' ||
+        request.auth.token.admin == true
+      );
+    }
+
+    match /users/{userId} {
+      // Admins can read all users, users can read themselves
+      allow read: if isAuthenticated() && (isAdmin() || request.auth.uid == userId);
+      // Users can write their own document, but cannot elevate role unless admin
+      allow create, update: if isAuthenticated() && (
+        isAdmin() ||
+        (request.auth.uid == userId && (
+          !('role' in request.resource.data) ||
+          request.resource.data.role == 'user' ||
+          (request.auth.token.email == 'boruahborajen2019@gmail.com' && request.resource.data.role == 'admin')
+        ))
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /places/{placeId} {
+      // Public / normal users can read only approved places, or their own submissions. Admin can read all!
+      allow read: if resource.data.status == "approved" || (isAuthenticated() && (request.auth.uid == resource.data.contributorId || isAdmin()));
+      // Users can submit new places, with initial status "pending"
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (request.resource.data.contributorId == request.auth.uid && request.resource.data.status == "pending")
+      );
+      // Only admin can approve/reject/edit any place. Contributor can only update their own if pending.
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (request.auth.uid == resource.data.contributorId && resource.data.status == "pending" && request.resource.data.status == "pending")
+      );
+      // Only admin or contributor (if pending) can delete
+      allow delete: if isAuthenticated() && (isAdmin() || (request.auth.uid == resource.data.contributorId && resource.data.status == "pending"));
+    }
+
+    match /culture/{cultureId} {
+      // Public / normal users can read only approved culture, or their own submissions. Admin can read all!
+      allow read: if resource.data.status == "approved" || (isAuthenticated() && (request.auth.uid == resource.data.contributorId || isAdmin()));
+      // Users can submit new culture, with initial status "pending"
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (request.resource.data.contributorId == request.auth.uid && request.resource.data.status == "pending")
+      );
+      // Admin can update any culture, contributor can only update if pending
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (request.auth.uid == resource.data.contributorId && resource.data.status == "pending" && request.resource.data.status == "pending")
+      );
+      // Admin or contributor can delete
+      allow delete: if isAuthenticated() && (isAdmin() || (request.auth.uid == resource.data.contributorId && resource.data.status == "pending"));
+    }
+
+    match /adminActions/{actionId} {
+      // Audit logs can only be read and created by authorized admins
+      allow read, create: if isAdmin();
+      allow update, delete: if false; // immutable audit log
+    }
+  }
+}
